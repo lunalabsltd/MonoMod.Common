@@ -50,6 +50,7 @@ namespace MonoMod.RuntimeDetour {
                     if (_Native != null)
                         return _Native;
 
+                    // Let's explain why "Fallback handler..." messages appear in the logs.
                     Console.WriteLine("Native libraries test...");
                     if (PlatformHelper.Is(Platform.ARM)) {
                         _Native = new DetourNativeARMPlatform();

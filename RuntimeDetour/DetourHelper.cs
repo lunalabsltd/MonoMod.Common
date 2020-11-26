@@ -50,6 +50,7 @@ namespace MonoMod.RuntimeDetour {
                     if (_Native != null)
                         return _Native;
 
+                    Console.WriteLine("Native libraries test...");
                     if (PlatformHelper.Is(Platform.ARM)) {
                         _Native = new DetourNativeARMPlatform();
                     } else {

@@ -206,8 +206,8 @@ namespace MonoMod.Utils {
                     if (_PreferCecil)
                         return DMDCecilGenerator.Generate(this, context);
 
-                    if (Debug)
 #if NETSTANDARD
+                    if (Debug)
                         return DMDCecilGenerator.Generate(this, context);
 #else
                         return DMDEmitMethodBuilderGenerator.Generate(this, context);

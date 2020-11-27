@@ -205,8 +205,9 @@ namespace MonoMod.Utils {
 
                     if (_PreferCecil)
                         return DMDCecilGenerator.Generate(this, context);
-
+#if !LUNA_REPLAY
                     if (Debug)
+#endif
 #if NETSTANDARD
                         return DMDCecilGenerator.Generate(this, context);
 #else

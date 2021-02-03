@@ -146,6 +146,7 @@ namespace MonoMod.RuntimeDetour.Platforms {
                 default:
                     throw new NotSupportedException($"Unknown detour type {detour.Type}");
             }
+            DetourHelper.Native.FlushICache(detour);
         }
 
         public void Copy(IntPtr src, IntPtr dst, byte type) {
@@ -182,6 +183,7 @@ namespace MonoMod.RuntimeDetour.Platforms {
                 default:
                     throw new NotSupportedException($"Unknown detour type {type}");
             }
+            DetourHelper.Native.FlushICache(dst, DetourSizes[type]);
         }
 
         public void MakeWritable(IntPtr src, uint size) {
@@ -202,10 +204,23 @@ namespace MonoMod.RuntimeDetour.Platforms {
 
             // Emit a native delegate once. It lives as long as the application.
             // It'd be ironic if the flush function would need to be flushed itself...
-            byte[] code = IntPtr.Size >= 8 ? _FlushCache64 : _FlushCache32;
+            byte[] code;
+            if (IntPtr.Size >= 8) {
+                code = _FlushCache64;
+            } else {
+                code = _FlushCache32Mono;
+                fixed (byte* ptr = code) {
+                    DetourHelper.Native.MakeExecutable((IntPtr) ptr, (uint) code.Length);
+                    var flushICache = Marshal.GetDelegateForFunctionPointer((IntPtr) ptr, typeof(d_flushicachemono)) as d_flushicachemono;
+                    flushICache?.Invoke(src, (IntPtr) ((long) src + size));
+                }
+                code = _FlushCache32;
+            }
+
             fixed (byte* ptr = code) {
                 DetourHelper.Native.MakeExecutable((IntPtr) ptr, (uint) code.Length);
-                (Marshal.GetDelegateForFunctionPointer((IntPtr) ptr, typeof(d_flushicache)) as d_flushicache)(src, size);
+                var flushICache = Marshal.GetDelegateForFunctionPointer((IntPtr) ptr, typeof(d_flushicache)) as d_flushicache;
+                flushICache?.Invoke(src, size);
             }
         }
 
@@ -218,8 +233,21 @@ namespace MonoMod.RuntimeDetour.Platforms {
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int d_flushicache(IntPtr code, ulong size);
+        private delegate void d_flushicache(IntPtr code, ulong size);
+        
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void d_flushicachemono(IntPtr code, IntPtr end);
 
+        /*
+         * These bytes are extracted directly from __clear_cache method
+         * from the mono shared library compiled into a Unity Android ARM build.
+         * This method is called from mono_arch_flush_icache method
+         * and used in the latest mono instead of the assembler approach below.
+         * As tests have shown it works when the assembler snippet doesn't, so using both to be sure.
+         * Used IDA disassembler to extract the bytes.
+         */
+        private readonly byte[] _FlushCache32Mono = {0x80, 0x00, 0x2D, 0xE9, 0x02, 0x70, 0x00, 0xE3, 0x0F, 0x70, 0x40, 0xE3, 0x00, 0x20, 0xA0, 0xE3, 0x00, 0x00, 0x00, 0xEF, 0x80, 0x00, 0xBD, 0xE8, 0x1E, 0xFF, 0x2F, 0xE1};
+        
         // The following tools were used to obtain the shellcode.
         // https://godbolt.org/ ARM(64) gcc 8.2
         // http://shell-storm.org/online/Online-Assembler-and-Disassembler/

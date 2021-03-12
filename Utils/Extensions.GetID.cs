@@ -181,7 +181,7 @@ namespace MonoMod.Utils {
 #endif
                     builder.Append("...,");
 
-                builder.Append(parameter.ParameterType.FullName);
+                builder.Append(parameter.ParameterType.FullName.Replace("+", "/"));
             }
 
             builder.Append(")");
